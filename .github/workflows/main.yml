@@ -1,0 +1,51 @@
+name: Build Fox RP Launcher
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Inject Fox RP Config
+        run: |
+          # 1. Меняем название приложения в Android ресурсах
+          sed -i 's/app_name">.*</app_name">Fox RP</g' android/app/src/main/res/values/strings.xml
+          
+          # 2. Создаем/обновляем .env файл с твоей ссылкой на Pastebin
+          echo "URL_DISTRIBUTION='https://pastebin.com/raw/rSHgfpgz'" > .env
+          echo "PROJECT_NAME='Fox RP'" >> .env
+          
+          # 3. Принудительная замена URL в коде (на случай, если .env не подхватится)
+          # Ищем файлы, где может быть зашит URL и меняем на твой Pastebin
+          grep -rl "http" src | xargs sed -i 's|https://api.penteleichuk.com/launcher/distribution|https://pastebin.com/raw/rSHgfpgz|g' || true
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build Android Release
+        run: |
+          cd android
+          chmod +x gradlew
+          # Собираем не подписанный APK (для теста)
+          ./gradlew assembleRelease --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: Fox-RP-Launcher
+          path: android/app/build/outputs/apk/release/*.apk
+          
